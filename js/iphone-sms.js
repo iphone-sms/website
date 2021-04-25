@@ -23,22 +23,30 @@ document.getElementById('uploadBtn').addEventListener('change', function() {
           }
         }
       }
-      var stmt = db.prepare(`SELECT message.text, coalesce(handle.id, 'group') as number, message.date, message.is_from_me
+      var stmt = db.prepare(`
+        SELECT
+          message.text,
+          coalesce(handle.id, 'group') as number, 
+          datetime (message.date / 1000000000 + strftime ("%s", "2001-01-01"), "unixepoch", "localtime") AS message_date,
+          message.is_from_me
         FROM message
           LEFT OUTER JOIN handle ON handle.ROWID = message.handle_id
           INNER JOIN chat_message_join ON message.ROWID = chat_message_join.message_id AND chat_message_join.chat_id = $id
-        WHERE TRIM(message.text) IS NOT NULL AND message.text NOT LIKE X'efbfbc'
-        ORDER BY message.ROWID, message.date`);
+        WHERE
+          TRIM(message.text) IS NOT NULL AND
+          message.text NOT LIKE X'efbfbc'
+        ORDER BY
+          message.ROWID,
+          message.date`);
       for (key in chats) {
         stmt.bind({$id: key});
         var messages = []
         while (stmt.step()) {
           var row = stmt.getAsObject();
-          var d = new Date(1000 * (row["date"] + 978307200));
           messages.push({
             text: row["text"],
             number: row["number"],
-            date: d.toISOString(),
+            date: row["message_date"],
             from_me: row["is_from_me"] != 1 ? 0 : 1,
           });
         }
